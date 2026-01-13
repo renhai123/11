@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SCUM人海地堡破解计算器 </title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            transition: all 0.2s ease;
+        }
+
+        /* 关键修改1：body继承父容器高度，消除默认滚动 */
+        body {
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+            color: #00ff9d;
+            height: 100%; /* 改为100%而非100vh，适配父容器 */
+            width: 100%;
+            padding: 0; /* 移除body内边距，避免高度溢出 */
+            display: flex;
+            justify-content: center;
+            align-items: stretch; /* 改为stretch，让子元素填满高度 */
+            overflow: hidden; /* 彻底禁止body滚动 */
+        }
+
+        /* 核心修改：隐藏number输入框的上下增减按钮 */
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield; /* Firefox浏览器兼容 */
+        }
+
+        /* 关键修改2：calculator容器适配父容器高度，无溢出 */
+        .calculator {
+            width: 100%;
+            max-width: 950px;
+            height: 100%; /* 填满父容器高度 */
+            max-height: 100%; /* 限制最大高度为父容器 */
+            background: rgba(0, 0, 0, 0.85);
+            border: 2px solid;
+            border-image: linear-gradient(to right, #00ff9d, #00bfff) 1;
+            border-radius: 16px;
+            padding: 15px 20px; /* 精简内边距，减少垂直高度 */
+            box-shadow: 0 0 30px rgba(0, 255, 157, 0.15), inset 0 0 15px rgba(0, 191, 255, 0.1);
+            backdrop-filter: blur(8px);
+            display: flex;
+            flex-direction: column;
+            gap: 10px; /* 减小元素间距，降低总高度 */
+            position: relative;
+            overflow-y: auto; /* 仅当内容真的超出时才显示内部滚动（兜底） */
+            overflow-x: hidden;
+        }
+
+        /* 新增：作者文字样式 */
+        .author {
+            position: absolute;
+            top: 10px;
+            left: 15px;
+            font-size: 12px;
+            color: rgba(0, 255, 157, 0.8);
+            z-index: 10;
+            font-weight: normal;
+        }
+
+        /* 关键修改3：精简top-settings的内边距和间距 */
+        .top-settings {
+            display: flex;
+            flex-direction: column;
+            gap: 10px; /* 减小内部间距 */
+            background: rgba(10, 10, 20, 0.7);
+            padding: 15px 15px; /* 精简内边距 */
+            border-radius: 12px;
+            border: 1px solid rgba(0, 255, 157, 0.2);
+            order: 1;
+            width: 100%;
+            flex-shrink: 0; /* 防止被压缩 */
+        }
+
+        .settings-row {
+            display: flex;
+            justify-content: center;
+            gap: 15px; /* 减小间距 */
+            flex-wrap: wrap;
+            width: 100%;
+        }
+
+        .value-set {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 200px;
+            flex: 1;
+            max-width: 250px;
+        }
+
+        .value-set label {
+            font-size: 15px;
+            font-weight: 600;
+            text-shadow: 0 0 8px rgba(0, 255, 157, 0.4);
+            white-space: nowrap;
+        }
+
+        .target-a-label, .init-a-label, .channel-a-title {
+            color: #ff4757 !important;
+            text-shadow: 0 0 8px rgba(255, 71, 87, 0.4) !important;
+        }
+        .target-a-input, .init-a-input, .channel-a-input {
+            color: #ff4757 !important;
+            border-color: #ff4757 !important;
+        }
+        .result-a {
+            border-color: rgba(255, 71, 87, 0.3) !important;
+            text-shadow: 0 0 10px rgba(255, 71, 87, 0.5) !important;
+        }
+
+        .target-b-label {
+            color: #00bfff !important;
+            text-shadow: 0 0 8px rgba(0, 191, 255, 0.4) !important;
+        }
+        .target-b-input, .init-b-input, .channel-b-input {
+            color: #00bfff !important;
+            border-color: #00bfff !important;
+        }
+        .init-b-label {
+            color: #00bfff !important;
+            text-shadow: 0 0 8px rgba(0, 191, 255, 0.4) !important;
+        }
+        .init-b-input {
+            font-weight: 600;
+        }
+        .result-b {
+            border-color: rgba(0, 191, 255, 0.3) !important;
+            text-shadow: 0 0 10px rgba(0, 191, 255, 0.5) !important;
+        }
+        .channel-b-input {
+            font-weight: 600;
+        }
+
+        .value-set input, .op-input {
+            background: rgba(0, 0, 0, 0.6);
+            padding: 10px 12px;
+            width: 100%;
+            max-width: 80px;
+            border-radius: 8px;
+            font-size: 14px;
+            text-align: center;
+            outline: none;
+            border: 1px solid currentColor;
+        }
+
+        .value-set input:focus, .op-input:focus {
+            box-shadow: 0 0 10px rgba(0, 191, 255, 0.3);
+            transform: scale(1.02);
+        }
+        .channel-a-input:focus {
+            border-color: #ff4757 !important;
+            box-shadow: 0 0 10px rgba(255, 71, 87, 0.3) !important;
+        }
+        .channel-b-input:focus {
+            border-color: #00bfff !important;
+            box-shadow: 0 0 10px rgba(0, 191, 255, 0.3) !important;
+        }
+
+        /* 关键修改4：精简按钮区域的间距和内边距 */
+        .button-actions {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 0 10px;
+            flex-wrap: wrap;
+            margin-top: 5px; /* 减少顶部外边距 */
+            gap: 10px; /* 减小按钮间距 */
+            width: 100%;
+            flex-shrink: 0;
+        }
+
+        .auto-btn {
+            background: linear-gradient(to right, #006644, #00ff9d);
+            border: none;
+            color: #000;
+            padding: 8px 15px; /* 精简内边距 */
+            border-radius: 8px;
+            font-size: 14px; /* 缩小字体 */
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0, 255, 157, 0.2);
+            width: fit-content;
+            tab-index: -1;
+            outline: none;
+            margin: 0;
+            flex: 1;
+            min-width: 120px;
+            max-width: 200px;
+        }
+
+        .auto-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(0, 255, 157, 0.3);
+            background: linear-gradient(to right, #008855, #00ff9d);
+        }
+
+        /* 关键修改5：main-layout自适应剩余高度，精简间距 */
+        .main-layout {
+            display: flex;
+            gap: 10px; /* 减小间距 */
+            flex-wrap: wrap;
+            order: 2;
+            margin-bottom: 5px; /* 减少底部外边距 */
+            width: 100%;
+            justify-content: center;
+            flex: 1; /* 占据剩余高度 */
+            overflow: hidden; /* 防止内部溢出 */
+        }
+
+        .trigger-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 8px; /* 减小间距 */
+            flex-shrink: 0;
+            min-width: 80px;
+        }
+
+        .trigger-btn {
+            background: linear-gradient(to bottom, #2d3436, #636e72);
+            border: 1px solid rgba(0, 255, 157, 0.2);
+            color: #fff;
+            padding: 12px 8px; /* 精简内边距 */
+            font-size: 13px; /* 缩小字体 */
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            max-width: 90px;
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+            tab-index: -1;
+            outline: none;
+        }
+
+        .trigger-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 5px 12px rgba(0, 0, 0, 0.4);
+            border-color: #00ff9d;
+        }
+
+        .trigger-btn.active {
+            background: linear-gradient(to bottom, #ff2d55, #ff5e7d);
+            border-color: #ff2d55;
+            color: #fff;
+            box-shadow: 0 0 15px rgba(255, 45, 85, 0.5);
+        }
+
+        .trigger-btn.solution {
+            background: linear-gradient(to bottom, #38ef7d, #2dd4bf);
+            border-color: #38ef7d;
+            color: #000;
+            box-shadow: 0 0 15px rgba(56, 239, 125, 0.5);
+        }
+
+        .ctrl-btn {
+            padding: 8px 12px; /* 精简内边距 */
+            background: linear-gradient(to bottom, #1e272e, #485460);
+            border: 1px solid rgba(0, 255, 157, 0.2);
+            color: #00ff9d;
+            font-size: 14px; /* 缩小字体 */
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+            tab-index: -1;
+            outline: none;
+            flex: 1;
+            min-width: 120px;
+            max-width: 200px;
+        }
+
+        .ctrl-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 12px rgba(0, 0, 0, 0.4);
+            border-color: #00bfff;
+            color: #00bfff;
+        }
+
+        .channels {
+            flex: 1;
+            display: flex;
+            gap: 10px; /* 减小间距 */
+            flex-wrap: wrap;
+            min-width: 280px;
+            overflow: hidden; /* 防止内部溢出 */
+        }
+
+        .channel {
+            flex: 1;
+            min-width: 260px;
+            background: rgba(10, 10, 20, 0.7);
+            padding: 10px; /* 精简内边距 */
+            border-radius: 12px;
+            border: 1px solid rgba(0, 255, 157, 0.2);
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto; /* 通道内内容溢出时仅内部滚动 */
+        }
+
+        .channel h3 {
+            margin-top: 0;
+            text-align: center;
+            margin-bottom: 10px; /* 减少底部间距 */
+            font-size: 16px; /* 缩小字体 */
+            padding-bottom: 5px; /* 减少底部内边距 */
+            border-bottom: 1px dashed rgba(0, 255, 157, 0.1);
+            flex-shrink: 0;
+        }
+
+        .step-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 8px 0; /* 减小间距 */
+            font-size: 13px;
+            color: #ffdd59;
+            width: 100%;
+            flex-shrink: 0;
+        }
+
+        .step-row label {
+            min-width: 60px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .op-input {
+            max-width: 100px;
+        }
+
+        /* 关键修改6：精简结果区域的内边距和字体 */
+        .result {
+            font-size: 24px; /* 缩小字体 */
+            text-align: center;
+            margin: 10px 0 5px; /* 减少间距 */
+            padding: 8px; /* 精简内边距 */
+            background: linear-gradient(to right, rgba(0, 0, 0, 0.8), rgba(20, 20, 40, 0.8));
+            border-radius: 8px;
+            border: 1px solid rgba(0, 255, 157, 0.3);
+            color: #fff;
+            font-weight: bold;
+            width: 100%;
+            word-break: break-all;
+            flex-shrink: 0;
+        }
+
+        /* 关键修改7：精简提示框的内边距 */
+        .solution-tip {
+            color: #ffdd59;
+            text-align: center;
+            font-size: 15px; /* 缩小字体 */
+            padding: 8px; /* 精简内边距 */
+            background: rgba(40, 40, 60, 0.7);
+            border-radius: 8px;
+            border: 1px solid #ffdd59;
+            display: none;
+            order: 3;
+            width: 100%;
+            word-break: break-all;
+            flex-shrink: 0; /* 防止被压缩 */
+        }
+
+        .solution-tip.success {
+            color: #00ff9d;
+            border-color: #00ff9d;
+            background: rgba(0, 80, 40, 0.3);
+        }
+
+        /* 响应式优化：小屏幕（手机）适配 */
+        @media (max-width: 768px) {
+            .calculator {
+                padding: 10px 10px;
+                border-radius: 8px; /* 减小圆角，节省空间 */
+            }
+            .result {
+                font-size: 20px;
+            }
+            .trigger-buttons {
+                flex-direction: row;
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 5px;
+                margin-bottom: 10px;
+            }
+            .trigger-btn {
+                width: calc(25% - 5px);
+                max-width: none;
+                padding: 8px 5px;
+                font-size: 12px;
+            }
+            .value-set {
+                min-width: 180px;
+            }
+            .main-layout {
+                flex-direction: column; /* 小屏改为纵向布局，更适配高度 */
+            }
+        }
+
+        @media (max-width: 480px) {
+            .button-actions {
+                gap: 8px;
+            }
+            .ctrl-btn, .auto-btn {
+                min-width: 100px;
+                padding: 6px 8px;
+                font-size: 13px;
+            }
+            .channel {
+                min-width: 100%;
+            }
+            .step-row {
+                flex-wrap: wrap;
+                justify-content: flex-start;
+            }
+            .step-row label {
+                min-width: 100%;
+                margin-bottom: 3px;
+            }
+            .op-input {
+                max-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="calculator">
+        <!-- 新增：左上角作者文字 -->
+        <div class="author">作者：人海</div>
+        
+        <div class="top-settings">
+            <div class="settings-row target-values">
+                <div class="value-set">
+                    <label class="target-a-label">🎯 A目标值（红）：</label>
+                    <input type="number" id="targetA" class="target-a-input" value="60" tabindex="1">
+                </div>
+                <div class="value-set">
+                    <label class="target-b-label">🎯 B目标值（蓝）：</label>
+                    <input type="number" id="targetB" class="target-b-input" value="210" tabindex="2">
+                </div>
+            </div>
+            <div class="settings-row init-values">
+                <div class="value-set">
+                    <label class="init-a-label">📌 A初始值（红）：</label>
+                    <input type="number" id="initA" class="init-a-input" value="120" tabindex="3">
+                </div>
+                <div class="value-set">
+                    <label class="init-b-label">📌 B初始值（蓝）：</label>
+                    <input type="number" id="initB" class="init-b-input" value="120" tabindex="4">
+                </div>
+            </div>
+            
+            <div class="button-actions">
+                <button class="ctrl-btn" id="reset" tabindex="-1">重置选择</button>
+                <button class="auto-btn" id="autoSolve" tabindex="-1">自动计算有效组合</button>
+                <button class="ctrl-btn" id="clearInputs" tabindex="-1">清空数字</button>
+            </div>
+        </div>
+
+        <div class="main-layout">
+            <div class="trigger-buttons">
+                <button class="trigger-btn" data-index="0" tabindex="-1">按钮1</button>
+                <button class="trigger-btn" data-index="1" tabindex="-1">按钮2</button>
+                <button class="trigger-btn" data-index="2" tabindex="-1">按钮3</button>
+                <button class="trigger-btn" data-index="3" tabindex="-1">按钮4</button>
+                <button class="trigger-btn" data-index="4" tabindex="-1">按钮5</button>
+                <button class="trigger-btn" data-index="5" tabindex="-1">按钮6</button>
+                <button class="trigger-btn" data-index="6" tabindex="-1">按钮7</button>
+                <button class="trigger-btn" data-index="7" tabindex="-1">按钮8</button>
+            </div>
+
+            <div class="channels">
+                <div class="channel">
+                    <h3 class="channel-a-title">通道 A（红）</h3>
+                    <div class="step-row"><label>按钮1：</label><input type="text" class="op-input channel-a-input" data-chan="A" data-index="0" value="-20" placeholder="如-20/*2" tabindex="5"></div>
+                    <div class="step-row"><label>按钮2：</label><input type="text" class="op-input channel-a-input" data-chan="A" data-index="1" value="+10" placeholder="如-20/*2" tabindex="6"></div>
+                    <div class="step-row"><label>按钮3：</label><input type="text" class="op-input channel-a-input" data-chan="A" data-index="2" value="-10" placeholder="如-20/*2" tabindex="7"></div>
+                    <div class="step-row"><label>按钮4：</label><input type="text" class="op-input channel-a-input" data-chan="A" data-index="3" value="0" placeholder="如-20/*2" tabindex="8"></div>
+                    <div class="step-row"><label>按钮5：</label><input type="text" class="op-input channel-a-input" data-chan="A" data-index="4" value="/2" placeholder="如-20/*2" tabindex="9"></div>
+                    <div class="step-row"><label>按钮6：</label><input type="text" class="op-input channel-a-input" data-chan="A" data-index="5" value="*2" placeholder="如-20/*2" tabindex="10"></div>
+                    <div class="step-row"><label>按钮7：</label><input type="text" class="op-input channel-a-input" data-chan="A" data-index="6" value="/2" placeholder="如-20/*2" tabindex="11"></div>
+                    <div class="step-row"><label>按钮8：</label><input type="text" class="op-input channel-a-input" data-chan="A" data-index="7" value="0" placeholder="如-20/*2" tabindex="12"></div>
+                    <div class="result result-a" id="resultA">120</div>
+                </div>
+
+                <div class="channel">
+                    <h3 class="target-b-label">通道 B（蓝）</h3>
+                    <div class="step-row"><label>按钮1：</label><input type="text" class="op-input channel-b-input" data-chan="B" data-index="0" value="0" placeholder="如-20/*2" tabindex="13"></div>
+                    <div class="step-row"><label>按钮2：</label><input type="text" class="op-input channel-b-input" data-chan="B" data-index="1" value="0" placeholder="如-20/*2" tabindex="14"></div>
+                    <div class="step-row"><label>按钮3：</label><input type="text" class="op-input channel-b-input" data-chan="B" data-index="2" value="-10" placeholder="如-20/*2" tabindex="15"></div>
+                    <div class="step-row"><label>按钮4：</label><input type="text" class="op-input channel-b-input" data-chan="B" data-index="3" value="0" placeholder="如-20/*2" tabindex="16"></div>
+                    <div class="step-row"><label>按钮5：</label><input type="text" class="op-input channel-b-input" data-chan="B" data-index="4" value="+60" placeholder="如-20/*2" tabindex="17"></div>
+                    <div class="step-row"><label>按钮6：</label><input type="text" class="op-input channel-b-input" data-chan="B" data-index="5" value="-40" placeholder="如-20/*2" tabindex="18"></div>
+                    <div class="step-row"><label>按钮7：</label><input type="text" class="op-input channel-b-input" data-chan="B" data-index="6" value="0" placeholder="如-20/*2" tabindex="19"></div>
+                    <div class="step-row"><label>按钮8：</label><input type="text" class="op-input channel-b-input" data-chan="B" data-index="7" value="+80" placeholder="如-20/*2" tabindex="20"></div>
+                    <div class="result result-b" id="resultB">120</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 移到最底部的提示框 -->
+        <div class="solution-tip" id="solutionTip"></div>
+    </div>
+
+    <script>
+        // 核心变量：选中的按钮集合（无顺序）
+        let selectedButtons = new Set();
+        let initA = 120;
+        let initB = 120;
+        let targetA = 60;
+        let targetB = 210;
+
+        const resultA = document.getElementById('resultA');
+        const resultB = document.getElementById('resultB');
+        const triggerBtns = document.querySelectorAll('.trigger-btn');
+        const resetBtn = document.getElementById('reset');
+        const autoSolveBtn = document.getElementById('autoSolve');
+        const clearInputsBtn = document.getElementById('clearInputs'); // 清空数字按钮
+        const solutionTip = document.getElementById('solutionTip');
+
+        // 初始化数值
+        function initValues() {
+            initA = Number(document.getElementById('initA').value) || 0;
+            initB = Number(document.getElementById('initB').value) || 0;
+            targetA = Number(document.getElementById('targetA').value) || 0;
+            targetB = Number(document.getElementById('targetB').value) || 0;
+            resultA.textContent = initA;
+            resultB.textContent = initB;
+        }
+
+        // 解析单个按钮的运算规则
+        function parseOp(inputValue) {
+            if (!inputValue || inputValue.trim() === '' || inputValue.trim() === '0') {
+                return { op: '', num: 0 };
+            }
+            const trimmed = inputValue.trim();
+            const opRegex = /^([\+\-\*\/])(\d+)$/;
+            const match = opRegex.exec(trimmed);
+            if (match) {
+                return { op: match[1], num: parseInt(match[2]) || 0 };
+            }
+            return { op: '', num: 0 };
+        }
+
+        // 【核心】计算按钮组合的最终结果（无顺序，直接作用于初始值）
+        function calculateCombinationResult(buttons) {
+            let a = initA;
+            let b = initB;
+
+            // 遍历所有选中的按钮，运算直接作用于初始值（无顺序/优先级）
+            buttons.forEach(btnIndex => {
+                // A通道运算
+                const aOpInput = document.querySelector(`.op-input[data-chan="A"][data-index="${btnIndex}"]`);
+                const aOp = parseOp(aOpInput.value);
+                switch (aOp.op) {
+                    case '+': a += aOp.num; break;
+                    case '-': a -= aOp.num; break;
+                    case '*': a *= aOp.num; break;
+                    case '/': a = aOp.num !== 0 ? Math.trunc(a / aOp.num) : a; break;
+                }
+
+                // B通道运算
+                const bOpInput = document.querySelector(`.op-input[data-chan="B"][data-index="${btnIndex}"]`);
+                const bOp = parseOp(bOpInput.value);
+                switch (bOp.op) {
+                    case '+': b += bOp.num; break;
+                    case '-': b -= bOp.num; break;
+                    case '*': b *= bOp.num; break;
+                    case '/': b = bOp.num !== 0 ? Math.trunc(b / bOp.num) : b; break;
+                }
+            });
+
+            return { a, b };
+        }
+
+        // 更新界面显示（仅保留结果计算）
+        function updateUI() {
+            // 计算并显示当前组合的结果
+            const result = calculateCombinationResult(selectedButtons);
+            resultA.textContent = result.a;
+            resultB.textContent = result.b;
+        }
+
+        // 清空所有输入框内容（无弹窗提示）
+        function clearAllInputs() {
+            // 1. 清空目标值、初始值输入框
+            document.getElementById('targetA').value = '';
+            document.getElementById('targetB').value = '';
+            document.getElementById('initA').value = '';
+            document.getElementById('initB').value = '';
+
+            // 2. 清空所有按钮运算规则输入框（A/B通道）
+            const allOpInputs = document.querySelectorAll('.op-input');
+            allOpInputs.forEach(input => {
+                input.value = '';
+            });
+
+            // 3. 重置数值变量并更新结果显示
+            initA = 0;
+            initB = 0;
+            targetA = 0;
+            targetB = 0;
+            resultA.textContent = '0';
+            resultB.textContent = '0';
+        }
+
+        // 按钮选择/取消逻辑
+        triggerBtns.forEach((btn, idx) => {
+            btn.addEventListener('click', () => {
+                if (selectedButtons.has(idx)) {
+                    // 取消选择
+                    selectedButtons.delete(idx);
+                    btn.classList.remove('active');
+                } else {
+                    // 选择按钮
+                    selectedButtons.add(idx);
+                    btn.classList.add('active');
+                }
+                updateUI();
+            });
+        });
+
+        // 重置选择
+        resetBtn.addEventListener('click', () => {
+            selectedButtons.clear();
+            triggerBtns.forEach(btn => {
+                btn.classList.remove('active', 'solution');
+            });
+            solutionTip.style.display = 'none';
+            initValues();
+            updateUI();
+        });
+
+        // 绑定清空数字事件
+        clearInputsBtn.addEventListener('click', clearAllInputs);
+
+        // 【核心】查找所有有效按钮组合（无顺序）
+        function findValidCombinations() {
+            initValues();
+            triggerBtns.forEach(btn => btn.classList.remove('solution'));
+            solutionTip.style.display = 'none';
+
+            const allButtons = [0,1,2,3,4,5,6,7]; // 8个按钮的索引
+            const validCombinations = [];
+
+            // 生成所有可能的按钮组合（幂集），最多8个按钮
+            function generateCombinations(arr, start, current) {
+                // 计算当前组合的结果
+                const result = calculateCombinationResult(new Set(current));
+                if (result.a === targetA && result.b === targetB && current.length > 0) {
+                    validCombinations.push([...current]);
+                }
+
+                // 递归生成组合（避免重复，按索引递增）
+                for (let i = start; i < arr.length; i++) {
+                    current.push(i);
+                    generateCombinations(arr, i + 1, current);
+                    current.pop();
+                }
+            }
+
+            generateCombinations(allButtons, 0, []);
+
+            // 展示结果
+            if (validCombinations.length > 0) {
+                // 优先展示最短的组合
+                validCombinations.sort((a, b) => a.length - b.length);
+                const bestCombination = validCombinations[0];
+                const bestCombinationText = bestCombination.map(idx => `按钮${idx + 1}`).join('、');
+
+                // 高亮有效组合的按钮
+                bestCombination.forEach(idx => {
+                    triggerBtns[idx].classList.add('solution');
+                });
+
+                // 仅保留组合信息和提示
+                solutionTip.textContent = `✅ 找到有效组合（最少按钮）：${bestCombinationText}（游戏内任意顺序点击均有效）`;
+                solutionTip.className = 'solution-tip success';
+                solutionTip.style.display = 'block';
+
+                // 自动选中最优组合
+                selectedButtons = new Set(bestCombination);
+                triggerBtns.forEach((btn, idx) => {
+                    if (selectedButtons.has(idx)) {
+                        btn.classList.add('active');
+                    }
+                });
+                updateUI();
+            } else {
+                solutionTip.textContent = '❌ 未找到有效按钮组合，请检查初始值/目标值/按钮运算规则';
+                solutionTip.className = 'solution-tip';
+                solutionTip.style.display = 'block';
+            }
+        }
+
+        // 绑定自动计算有效组合事件
+        autoSolveBtn.addEventListener('click', findValidCombinations);
+
+        // 监听数值输入变化
+        document.getElementById('initA').addEventListener('input', () => {
+            initValues();
+            updateUI();
+        });
+        document.getElementById('initB').addEventListener('input', () => {
+            initValues();
+            updateUI();
+        });
+        document.getElementById('targetA').addEventListener('input', () => {
+            initValues();
+            updateUI();
+        });
+        document.getElementById('targetB').addEventListener('input', () => {
+            initValues();
+            updateUI();
+        });
+
+        // 初始化
+        initValues();
+        updateUI();
+    </script>
+</body>
+</html>
